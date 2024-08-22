@@ -41,14 +41,16 @@ const processFileContent = (content) => {
             if (index === 0 && part === "..") {
                 return part; 
             }
-            return part.replace(/\./g, '_');
+            console.log(part);
+    
+            return part.replace(/\./g, '_').replace(/_dita/g, '.dita');
         });
+    
         modifiedParts.push(filePart);
 
         return `href="${modifiedParts.join('/')}"`;
     });
 };
-
 
 const processFileName = (filename) => {
     const parts = filename.split('.');
@@ -63,13 +65,12 @@ app.post('/process-IASB2024Zip', upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
-
     const originalFileName = path.parse(req.file.originalname).name;
     const uniqueId = Math.random().toString(36).substring(7);
     const zipPath = req.file.path;
     const outputZipDir = path.join(__dirname, `processed/${uniqueId}`);
     const outputZip = path.join(outputZipDir, `${originalFileName}.zip`);
-
+    
     if (!fs.existsSync(outputZipDir)){
         fs.mkdirSync(outputZipDir, { recursive: true });
     }
@@ -143,6 +144,7 @@ app.get('/download/:id', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
