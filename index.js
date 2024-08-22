@@ -4,33 +4,50 @@ const unzipper = require('unzipper');
 const archiver = require('archiver');
 const fs = require('fs');
 const path = require('path');
-
 const app = express();
 const upload = multer({ dest: 'uploads/' });
-
 
 const processFileContent = (content) => {
     return content.replace(/id="([^"]*)"/g, (match, p1) => {
         return `id="${p1.replace(/\./g, '_')}"`;
     }).replace(/href="([^"]*)"/g, (match, p1) => {
-     
-        const parts = p1.split('/');
-        let filePart = parts.pop(); 
 
-        const lastDotIndex = filePart.lastIndexOf('.');
+        const parts = p1.split('/');
+
+        let filePart = parts.pop();
+
+        let [fileNameWithAnchor, anchor] = filePart.split('#');
+
+        const lastDotIndex = fileNameWithAnchor.lastIndexOf('.');
+
         if (lastDotIndex !== -1) {
-            const fileName = filePart.substring(0, lastDotIndex); 
-            const ext = filePart.substring(lastDotIndex); 
-            filePart = fileName.replace(/\./g, '_') + ext; 
+            const fileName = fileNameWithAnchor.substring(0, lastDotIndex);
+
+            const ext = fileNameWithAnchor.substring(lastDotIndex);
+
+            if (ext === '.dita' || ext === '.ditamap' || ext === '.pdf' || ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.html') {
+                fileNameWithAnchor = fileName.replace(/\./g, '_') + ext;
+            } else {
+                fileNameWithAnchor = fileNameWithAnchor.replace(/\./g, '_');
+            }
+
         } else {
-            filePart = filePart.replace(/\./g, '_');
+            fileNameWithAnchor = fileNameWithAnchor.replace(/\./g, '_');
         }
 
-        parts.push(filePart); 
-        return `href="${parts.join('/')}"`;
+        filePart = anchor ? `${fileNameWithAnchor}#${anchor.replace(/\./g, '_')}` : fileNameWithAnchor;
+
+        const modifiedParts = parts.map((part, index) => {
+            if (index === 0 && part === "..") {
+                return part; 
+            }
+            return part.replace(/\./g, '_');
+        });
+        modifiedParts.push(filePart);
+
+        return `href="${modifiedParts.join('/')}"`;
     });
 };
-
 
 
 const processFileName = (filename) => {
@@ -53,7 +70,7 @@ app.post('/process-IASB2024Zip', upload.single('file'), async (req, res) => {
     const outputZipDir = path.join(__dirname, `processed/${uniqueId}`);
     const outputZip = path.join(outputZipDir, `${originalFileName}.zip`);
 
-    if (!fs.existsSync(outputZipDir)) {
+    if (!fs.existsSync(outputZipDir)){
         fs.mkdirSync(outputZipDir, { recursive: true });
     }
 
@@ -100,7 +117,7 @@ app.get('/download/:id', (req, res) => {
         if (err || files.length === 0) {
             return res.status(404).json({ message: 'File not found' });
         }
-        
+      
         const fileName = files[0];
         const fullFilePath = path.join(filePath, fileName);
 
@@ -122,6 +139,7 @@ app.get('/download/:id', (req, res) => {
             });
         });
     });
+ 
 });
 
 const PORT = process.env.PORT || 3000;
